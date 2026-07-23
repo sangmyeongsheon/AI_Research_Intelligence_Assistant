@@ -47,6 +47,7 @@ import type {
   MergeEvidenceInput,
   RegenerateAfterResolutionInput,
 } from "@/src/lib/ai/provider";
+import { normalizeProtocolResourceLabels } from "@/src/lib/protocol-resource-labels";
 
 export type GeminiErrorCode =
   | "missing_key"
@@ -704,18 +705,20 @@ export class GeminiProvider implements AIProvider {
   async generateProtocol(
     input: GenerateProtocolInput,
   ): Promise<StructuredProtocolOutput> {
-    const result = await this.generateStructured(
-      this.primaryModel,
-      [
-        GENERATION_PROMPT,
-        "StructuredProtocolOutput JSON을 반환하라.",
-        `sources: ${JSON.stringify(input.sources)}`,
-        `evidence: ${JSON.stringify(input.evidence)}`,
-        `detected conflicts: ${JSON.stringify(input.conflicts ?? [])}`,
-        `detected missing fields: ${JSON.stringify(input.missingFields ?? [])}`,
-      ].join("\n\n"),
-      StructuredProtocolOutputSchema,
-      structuredProtocolJsonSchema,
+    const result = normalizeProtocolResourceLabels(
+      await this.generateStructured(
+        this.primaryModel,
+        [
+          GENERATION_PROMPT,
+          "StructuredProtocolOutput JSON을 반환하라.",
+          `sources: ${JSON.stringify(input.sources)}`,
+          `evidence: ${JSON.stringify(input.evidence)}`,
+          `detected conflicts: ${JSON.stringify(input.conflicts ?? [])}`,
+          `detected missing fields: ${JSON.stringify(input.missingFields ?? [])}`,
+        ].join("\n\n"),
+        StructuredProtocolOutputSchema,
+        structuredProtocolJsonSchema,
+      ),
     );
     assertReferencesUseArtifacts(protocolReferences(result), input.sources);
     // The uploaded artifacts are canonical. Gemini may omit an unused source
@@ -728,18 +731,20 @@ export class GeminiProvider implements AIProvider {
   async regenerateAfterResolution(
     input: RegenerateAfterResolutionInput,
   ): Promise<StructuredProtocolOutput> {
-    const result = await this.generateStructured(
-      this.primaryModel,
-      [
-        GENERATION_PROMPT,
-        "연구자가 해결한 conflict와 답한 missing field만 반영하라. 해결되지 않은 값은 확정하지 마라.",
-        `current protocol: ${JSON.stringify(input.protocol)}`,
-        `evidence: ${JSON.stringify(input.evidence)}`,
-        `conflicts: ${JSON.stringify(input.conflicts)}`,
-        `missing fields: ${JSON.stringify(input.missingFields)}`,
-      ].join("\n\n"),
-      StructuredProtocolOutputSchema,
-      structuredProtocolJsonSchema,
+    const result = normalizeProtocolResourceLabels(
+      await this.generateStructured(
+        this.primaryModel,
+        [
+          GENERATION_PROMPT,
+          "연구자가 해결한 conflict와 답한 missing field만 반영하라. 해결되지 않은 값은 확정하지 마라.",
+          `current protocol: ${JSON.stringify(input.protocol)}`,
+          `evidence: ${JSON.stringify(input.evidence)}`,
+          `conflicts: ${JSON.stringify(input.conflicts)}`,
+          `missing fields: ${JSON.stringify(input.missingFields)}`,
+        ].join("\n\n"),
+        StructuredProtocolOutputSchema,
+        structuredProtocolJsonSchema,
+      ),
     );
     assertReferencesUseArtifacts(
       protocolReferences(result),

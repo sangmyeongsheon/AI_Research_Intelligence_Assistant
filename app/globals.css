@@ -3194,6 +3194,22 @@ body {
   gap: 16px;
 }
 
+.dashboard-grid > .stack,
+.dashboard-grid > .stack > .panel {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dashboard-grid .panel-body,
+.dashboard-grid .table-wrap {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.dashboard-grid .table-wrap {
+  width: 100%;
+}
+
 .panel,
 .analysis-card,
 .source-review-layout,
@@ -3230,6 +3246,10 @@ body {
   padding: 16px;
 }
 
+.panel-body.no-padding {
+  padding: 0;
+}
+
 .data-table th {
   height: 38px;
   padding: 9px 12px;
@@ -3251,8 +3271,12 @@ body {
 }
 
 .recent-protocol-table {
-  min-width: 720px;
+  min-width: 0;
   table-layout: fixed;
+}
+
+.recent-protocol-table .cell-title {
+  min-width: 0;
 }
 
 .recent-protocol-title-column {

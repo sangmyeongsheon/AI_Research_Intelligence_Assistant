@@ -28,6 +28,7 @@ import {
   isLegacyDefaultProtocolTitle,
   protocolTitleSuffix,
 } from "@/src/lib/protocol-naming";
+import { normalizeProtocolResourceLabels } from "@/src/lib/protocol-resource-labels";
 import { PRODUCT_CONFIG } from "@/src/config/product";
 import type {
   AiSuggestion,
@@ -435,8 +436,9 @@ async function readProtocolState(protocolId: string) {
     repository.getVersions(protocolId),
     repository.getChatMessages(protocolId),
   ]);
+  const normalizedActiveProtocol = normalizeProtocolDocument(activeProtocol);
   return {
-    activeProtocol,
+    activeProtocol: normalizedActiveProtocol,
     sources,
     excerpts,
     conflicts,
@@ -444,6 +446,16 @@ async function readProtocolState(protocolId: string) {
     versions,
     chatMessages,
   };
+}
+
+function normalizeProtocolDocument(
+  protocol: ProtocolDocument | null,
+): ProtocolDocument | null {
+  if (!protocol) return null;
+  const snapshot = normalizeProtocolResourceLabels(protocol.snapshot);
+  return snapshot === protocol.snapshot
+    ? protocol
+    : { ...protocol, snapshot };
 }
 
 function remapSnapshotSources(
@@ -493,7 +505,7 @@ function remapSnapshotSources(
     ...field,
     id: `${protocolId}-${field.id}`,
   }));
-  return cloned;
+  return normalizeProtocolResourceLabels(cloned);
 }
 
 const initialState = {
@@ -1108,7 +1120,9 @@ export const useLabTraceStore = create<LabTraceState>((set, get) => ({
         labId: active.labId,
         createdAt: active.createdAt,
       };
-      const snapshot = nextSnapshot ?? active.snapshot;
+      const snapshot = normalizeProtocolResourceLabels(
+        nextSnapshot ?? active.snapshot,
+      );
       const result = await getLabTraceRepository().saveProtocol(
         protocol,
         snapshot,
@@ -1353,7 +1367,10 @@ export const useLabTraceStore = create<LabTraceState>((set, get) => ({
   updateProtocolSnapshot: (patch) => {
     const active = get().activeProtocol;
     if (!active) return;
-    const snapshot = { ...active.snapshot, ...patch };
+    const snapshot = normalizeProtocolResourceLabels({
+      ...active.snapshot,
+      ...patch,
+    });
     set({
       activeProtocol: { ...active, snapshot },
       conflicts: snapshot.conflicts,
