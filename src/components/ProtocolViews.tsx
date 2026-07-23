@@ -686,7 +686,7 @@ export function ProtocolDetailView({
       const markdown = buildProtocolMarkdown(exportBundle, {
         includeVersionHistory: true,
       });
-      downloadMarkdown(markdown, `${protocol.title}-LabTrace.md`);
+      downloadMarkdown(markdown, `${protocol.title}-ARIA.md`);
       onToast("Markdown 파일을 다운로드했습니다.");
     } catch (error) {
       onToast(
@@ -1299,7 +1299,7 @@ export function AssistantView({
                 key={message.id}
               >
                 <div className="message-label">
-                  {message.role === "user" ? "나" : "LabTrace"} ·{" "}
+                  {message.role === "user" ? "나" : "ARIA"} ·{" "}
                   {new Date(message.createdAt).toLocaleTimeString("ko-KR", {
                     hour: "2-digit",
                     minute: "2-digit",
@@ -1340,7 +1340,7 @@ export function AssistantView({
             ))}
             {sending ? (
               <article className="message message-assistant">
-                <div className="message-label">LabTrace assistant</div>
+                <div className="message-label">ARIA assistant</div>
                 <div className="message-bubble">
                   연결된 출처와 미해결 항목을 확인하고 있습니다…
                 </div>

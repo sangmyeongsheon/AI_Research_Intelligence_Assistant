@@ -9,6 +9,7 @@ import {
   ChevronRight,
   CircleDot,
   Copy,
+  Download,
   FilePlus2,
   FileSearch,
   Files,
@@ -28,6 +29,12 @@ import type {
   SourceArtifact,
 } from "@/src/types";
 import { PRODUCT_CONFIG } from "@/src/config/product";
+import {
+  clearSessionGeminiApiKey,
+  hasSessionGeminiApiKey,
+  setSessionGeminiApiKey,
+} from "@/src/lib/ai/api-key-session";
+import type { AIKeySource } from "@/src/stores/useLabTraceStore";
 import {
   Modal,
   Panel,
@@ -149,9 +156,7 @@ export function OverviewView({
         <div className="lab-paper-list">
           <div className="lab-paper-heading">
             <BookOpen aria-hidden size={14} />
-            <strong>
-              주요 논문{lab?.keyPapers?.length ? "" : " (예시)"}
-            </strong>
+            <strong>주요 논문</strong>
           </div>
           {(lab?.keyPapers?.length
             ? lab.keyPapers
@@ -192,6 +197,15 @@ export function OverviewView({
           </p>
         </div>
         <div className="page-actions">
+          <a
+            aria-label="ARIA 예제 모음집 ZIP 다운로드"
+            className="button"
+            download="ARIA-example-collection.zip"
+            href={PRODUCT_CONFIG.demoBundleSrc}
+          >
+            <Download aria-hidden size={16} />
+            예제 모음집 다운로드
+          </a>
           <button
             className="button"
             onClick={onCreateExample}
@@ -998,19 +1012,57 @@ export function SourcesView({
 
 export function SettingsView({
   lab,
-  apiKeyConfigured,
-  onApiKeyClear,
-  onApiKeySave,
+  demoMode,
+  aiKeySource,
+  onApiKeyChanged,
   onReset,
 }: {
   lab?: Lab;
-  apiKeyConfigured: boolean;
-  onApiKeyClear: () => void;
-  onApiKeySave: (apiKey: string) => void;
+  demoMode: boolean;
+  aiKeySource: AIKeySource;
+  onApiKeyChanged: () => Promise<boolean>;
   onReset: () => void;
 }) {
-  const [apiKey, setApiKey] = useState("");
   const [resetOpen, setResetOpen] = useState(false);
+  const [apiKeyDraft, setApiKeyDraft] = useState("");
+  const [hasBrowserApiKey, setHasBrowserApiKey] = useState(() =>
+    hasSessionGeminiApiKey(),
+  );
+  const [apiKeyNotice, setApiKeyNotice] = useState("");
+  const [savingApiKey, setSavingApiKey] = useState(false);
+
+  const saveApiKey = async () => {
+    try {
+      setSavingApiKey(true);
+      setSessionGeminiApiKey(apiKeyDraft);
+      setHasBrowserApiKey(true);
+      setApiKeyDraft("");
+      const connected = await onApiKeyChanged();
+      setApiKeyNotice(
+        connected
+          ? "현재 탭에서 사용자 API 키를 사용합니다. F5 또는 탭 종료 시 자동으로 삭제됩니다."
+          : "API 키 상태를 확인하지 못했습니다. 다시 입력해 주세요.",
+      );
+    } catch (error) {
+      setApiKeyNotice(
+        error instanceof Error
+          ? error.message
+          : "API 키를 적용하지 못했습니다.",
+      );
+    } finally {
+      setSavingApiKey(false);
+    }
+  };
+
+  const clearApiKey = async () => {
+    clearSessionGeminiApiKey();
+    setHasBrowserApiKey(false);
+    setApiKeyDraft("");
+    setSavingApiKey(true);
+    await onApiKeyChanged();
+    setApiKeyNotice("현재 탭의 API 키를 삭제했습니다.");
+    setSavingApiKey(false);
+  };
 
   return (
     <div className="page">
@@ -1018,7 +1070,7 @@ export function SettingsView({
         <div>
           <h1 className="page-title">Settings</h1>
           <p className="page-description">
-            AI 연결 상태와 이 브라우저에 저장된 프로토콜 데이터를 관리합니다.
+            AI 연결 상태와 이 브라우저의 프로토콜 데이터를 관리합니다.
           </p>
         </div>
       </header>
@@ -1029,67 +1081,80 @@ export function SettingsView({
             <div>
               <strong>Gemini API</strong>
               <p>
-                {apiKeyConfigured
-                  ? "현재 탭에 입력한 키로 Gemini를 직접 호출합니다."
-                  : "본인의 Gemini API 키를 입력해야 AI 분석을 사용할 수 있습니다."}
+                {demoMode
+                  ? "연결 상태를 확인해 주세요. 업로드한 자료는 분석 전까지 브라우저에 보관됩니다."
+                  : "연결됨 · 업로드한 자료를 분석해 프로토콜을 생성할 수 있습니다."}
               </p>
             </div>
-            <span
-              className={`status status-${apiKeyConfigured ? "draft" : "review"}`}
-            >
-              {apiKeyConfigured ? "키 입력됨" : "키 필요"}
+            <span className={`status status-${demoMode ? "review" : "draft"}`}>
+              {demoMode ? "확인 필요" : "연결됨"}
             </span>
           </div>
-          <form
-            className="api-key-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              onApiKeySave(apiKey);
-              setApiKey("");
-            }}
-          >
-            <label className="field">
-              <span className="field-label">내 Gemini API 키</span>
-              <input
-                aria-describedby="api-key-privacy"
-                autoCapitalize="none"
-                autoComplete="off"
-                className="input"
-                name="gemini-api-key"
-                onChange={(event) => setApiKey(event.target.value)}
-                placeholder="Google AI Studio에서 발급한 키를 붙여넣으세요"
-                spellCheck={false}
-                type="password"
-                value={apiKey}
-              />
-            </label>
-            <p className="privacy-note" id="api-key-privacy">
-              키는 현재 탭의 메모리에만 유지되며 LocalStorage, IndexedDB,
-              GitHub 또는 LabTrace 서버에 저장되지 않습니다. 새로고침하거나
-              탭을 닫으면 삭제됩니다.
-            </p>
-            <div className="api-key-actions">
-              <button
-                className="button button-primary"
-                disabled={!apiKey.trim()}
-                type="submit"
+          <div className="setting-row">
+            <div>
+              <strong>API 키 관리</strong>
+              <p>
+                사용자 키는 현재 탭의 메모리에만 유지되며 Gemini로 직접
+                전송됩니다. LocalStorage, IndexedDB, GitHub 또는 ARIA 서버에는
+                저장되지 않고 F5 또는 탭 종료 시 삭제됩니다.
+              </p>
+              <label
+                className="field"
+                style={{ marginTop: 12, maxWidth: 560 }}
               >
-                이 키 사용
-              </button>
-              {apiKeyConfigured ? (
+                <span>Gemini API 키</span>
+                <input
+                  autoCapitalize="none"
+                  autoComplete="off"
+                  className="input"
+                  onChange={(event) => setApiKeyDraft(event.target.value)}
+                    placeholder={
+                      hasBrowserApiKey
+                        ? "새 키를 입력하면 현재 탭의 키를 교체합니다"
+                        : "사용자 API 키 입력"
+                  }
+                  spellCheck={false}
+                  type="password"
+                  value={apiKeyDraft}
+                />
+              </label>
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 8,
+                  marginTop: 10,
+                }}
+              >
                 <button
-                  className="button"
-                  onClick={() => {
-                    onApiKeyClear();
-                    setApiKey("");
-                  }}
+                  className="button button-primary"
+                  disabled={!apiKeyDraft.trim() || savingApiKey}
+                  onClick={() => void saveApiKey()}
                   type="button"
                 >
-                  현재 키 지우기
+                  {savingApiKey ? "적용 중…" : "현재 탭에서 키 사용"}
                 </button>
+                {hasBrowserApiKey ? (
+                  <button
+                    className="button"
+                    disabled={savingApiKey}
+                    onClick={() => void clearApiKey()}
+                    type="button"
+                  >
+                    현재 탭의 키 삭제
+                  </button>
+                ) : null}
+              </div>
+              {apiKeyNotice ? (
+                <p aria-live="polite" style={{ marginTop: 8 }}>
+                  {apiKeyNotice}
+                </p>
               ) : null}
             </div>
-          </form>
+            <span className="tag">
+              {aiKeySource === "session" ? "현재 탭 키" : "키 없음"}
+            </span>
+          </div>
         </Panel>
 
         <div className="stack">
@@ -1132,7 +1197,7 @@ export function SettingsView({
 
       {resetOpen ? (
         <Modal
-          description="현재 브라우저의 LabTrace 프로토콜, 출처, 채팅과 버전 이력을 초기화합니다."
+          description="현재 브라우저의 ARIA 프로토콜, 출처, 채팅과 버전 이력을 초기화합니다."
           footer={
             <>
               <button

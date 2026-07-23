@@ -146,7 +146,7 @@ export function createPrintableHtmlFromMarkdown(
   markdown: string,
   options: PrintableDocumentOptions = {},
 ): string {
-  const title = options.title?.trim() || "LabTrace 프로토콜";
+  const title = options.title?.trim() || "ARIA 프로토콜";
   const locale = options.locale?.trim() || "ko";
   const safeTitle = escapeHtml(title);
   const body = markdownToSafePrintHtml(markdown);
@@ -627,7 +627,7 @@ function printableProtocolBody(
     </div>
   </section>
   <footer class="document-footer">
-    <span>LabTrace · ${printText(documentCode)}</span>
+    <span>ARIA · ${printText(documentCode)}</span>
     <span>내보낸 시각 ${printDate(generatedAt, true)} · 원본 자료와 검토 이력이 연결된 프로토콜</span>
   </footer>`;
 }
@@ -636,7 +636,7 @@ export function buildPrintableProtocolHtml(
   bundle: ProtocolExportBundle,
   markdownOptions: MarkdownExportOptions = {},
 ): string {
-  const safeTitle = escapeHtml(bundle.protocol.title || "LabTrace 프로토콜");
+  const safeTitle = escapeHtml(bundle.protocol.title || "ARIA 프로토콜");
   const body = printableProtocolBody(bundle, markdownOptions);
   return `<!doctype html>
 <html lang="ko">
@@ -906,7 +906,7 @@ export function openPrintWindow(
       code: "EXPORT_NOT_AVAILABLE",
       title: "이 환경에서는 인쇄할 수 없습니다",
       message: "PDF/인쇄 내보내기는 브라우저 화면에서만 실행할 수 있습니다.",
-      recovery: "LabTrace 브라우저 화면으로 돌아가 다시 시도해 주세요.",
+      recovery: "ARIA 브라우저 화면으로 돌아가 다시 시도해 주세요.",
     });
   }
 
@@ -919,7 +919,7 @@ export function openPrintWindow(
     throw new ExportProcessingError({
       code: "PRINT_WINDOW_BLOCKED",
       title: "인쇄 창이 차단되었습니다",
-      message: "브라우저가 LabTrace의 인쇄 창을 열지 못했습니다.",
+      message: "브라우저가 ARIA의 인쇄 창을 열지 못했습니다.",
       recovery:
         "이 사이트의 팝업을 허용한 뒤 다시 시도해 주세요. 편집 중인 데이터는 보존되어 있습니다.",
     });

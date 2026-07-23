@@ -33,6 +33,7 @@ import type {
   SourceRef,
 } from "@/src/types";
 import { getLabTraceRepository } from "@/src/lib/db";
+import { resolveSourceReviewText } from "@/src/lib/files/transcript";
 import {
   formatFileSize,
   validateUploadFile,
@@ -736,13 +737,15 @@ export function AnalysisProgressView({
                 key={stage.label}
               >
                 <span className="stage-marker">
-                  {complete ? (
-                    <Check aria-hidden size={12} />
-                  ) : errorStage ? (
-                    <AlertCircle aria-hidden size={12} />
-                  ) : (
-                    String(index + 1).padStart(2, "0")
-                  )}
+                  <span className="stage-marker-content">
+                    {complete ? (
+                      <Check aria-hidden size={12} />
+                    ) : errorStage ? (
+                      <AlertCircle aria-hidden size={12} />
+                    ) : (
+                      String(index + 1).padStart(2, "0")
+                    )}
+                  </span>
                 </span>
                 <div>
                   <strong>{stage.label}</strong>
@@ -830,9 +833,11 @@ export function SourceReviewView({
     );
   }
 
-  const displayText =
-    draftText ||
-    sourceExcerpts.map((excerpt) => excerpt.excerptText).join("\n\n");
+  const extractedDisplayText = resolveSourceReviewText(
+    selected,
+    sourceExcerpts,
+  );
+  const displayText = editing ? draftText : extractedDisplayText;
   const confidence =
     sourceExcerpts.length > 0
       ? sourceExcerpts.reduce((sum, item) => sum + item.confidence, 0) /
@@ -935,6 +940,8 @@ export function SourceReviewView({
                       extractedText: draftText,
                       notes: `${selected.notes}${selected.notes ? " · " : ""}user-corrected`,
                     });
+                  } else {
+                    setDraftText(extractedDisplayText);
                   }
                   setEditing((value) => !value);
                 }}
@@ -1023,7 +1030,7 @@ export function SourceReviewView({
                   {editing
                     ? "사용자 수정본"
                     : selected.type === "audio"
-                      ? "사전 전사본"
+                      ? "전체 전사본"
                       : "추출된 텍스트"}
                 </h3>
                 {editing ? (

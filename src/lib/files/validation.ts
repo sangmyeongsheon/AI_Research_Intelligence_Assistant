@@ -34,7 +34,7 @@ function unsupportedTypeError(file: UploadFileLike): FileProcessingError {
   return new FileProcessingError({
     code: "UNSUPPORTED_FILE_TYPE",
     title: "지원하지 않는 파일 형식입니다",
-    message: `${file.name || "선택한 파일"}은(는) LabTrace에서 읽을 수 없는 형식입니다.`,
+    message: `${file.name || "선택한 파일"}은(는) ARIA에서 읽을 수 없는 형식입니다.`,
     recovery: `TXT, MD, PDF, JPG, PNG, MP3, WAV, M4A, AAC, OGG, FLAC 중 하나로 변환한 뒤 다시 추가해 주세요.`,
     dataPreserved: true,
     fileName: file.name,

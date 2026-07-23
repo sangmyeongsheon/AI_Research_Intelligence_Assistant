@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
+import type { CSSProperties } from "react";
 import { PRODUCT_CONFIG } from "@/src/config/product";
 import "./globals.css";
-
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
 
 export const metadata: Metadata = {
   metadataBase: new URL(
@@ -14,19 +13,30 @@ export const metadata: Metadata = {
   },
   description: PRODUCT_CONFIG.description,
   icons: {
-    icon: `${basePath}/favicon.svg`,
-    shortcut: `${basePath}/favicon.svg`,
+    icon: [{ url: PRODUCT_CONFIG.logoSrc, type: "image/png" }],
+    shortcut: PRODUCT_CONFIG.logoSrc,
+    apple: PRODUCT_CONFIG.logoSrc,
   },
   openGraph: {
     type: "website",
     locale: "ko_KR",
+    siteName: PRODUCT_CONFIG.fullName,
     title: `${PRODUCT_CONFIG.name} — 근거가 연결된 랩 프로토콜`,
     description: PRODUCT_CONFIG.description,
+    images: [
+      {
+        url: PRODUCT_CONFIG.socialImageSrc,
+        width: 1731,
+        height: 909,
+        alt: "ARIA — AI Research Intelligence Assistant",
+      },
+    ],
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: `${PRODUCT_CONFIG.name} — 근거가 연결된 랩 프로토콜`,
     description: PRODUCT_CONFIG.description,
+    images: [PRODUCT_CONFIG.socialImageSrc],
   },
 };
 
@@ -37,7 +47,15 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body
+        style={
+          {
+            "--aria-logo-url": `url("${PRODUCT_CONFIG.logoSrc}")`,
+          } as CSSProperties
+        }
+      >
+        {children}
+      </body>
     </html>
   );
 }

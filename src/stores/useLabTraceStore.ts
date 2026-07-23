@@ -3,10 +3,8 @@
 import { create } from "zustand";
 
 import {
-  clearSessionGeminiApiKey,
   getSessionGeminiApiKey,
   hasSessionGeminiApiKey,
-  setSessionGeminiApiKey,
 } from "@/src/lib/ai/api-key-session";
 import { createGeminiModelConfig } from "@/src/lib/ai/model-config";
 import type { ExtractSourceInput } from "@/src/lib/ai/provider";
@@ -22,6 +20,7 @@ import {
 } from "@/src/lib/example-protocol";
 import {
   cloneDemoValue,
+  DEMO_LAB_ID,
 } from "@/src/lib/demo";
 import {
   createDefaultProtocolTitle,
@@ -75,6 +74,8 @@ export interface StoreToast {
   message: string;
 }
 
+export type AIKeySource = "session" | "none";
+
 export type ProtocolSavePatch = Partial<
   Omit<Protocol, "id" | "labId" | "createdAt">
 > & {
@@ -94,8 +95,8 @@ export interface LabTraceState {
   suggestions: AiSuggestion[];
   evidence: EvidenceUnit[];
   hydrated: boolean;
-  apiKeyConfigured: boolean;
   demoMode: boolean;
+  aiKeySource: AIKeySource;
   analysisStage: AnalysisStage;
   analysisProgress: number;
   selectedSourceRef: SourceRef | null;
@@ -103,6 +104,8 @@ export interface LabTraceState {
   error: string | null;
 
   hydrate(): Promise<void>;
+  selectLab(lab: Lab): Promise<void>;
+  refreshAIConnection(): Promise<boolean>;
   updateLab(patch: Partial<Lab>): Promise<void>;
   createExampleProtocol(): Promise<Protocol | null>;
   startFreshDemo(): Promise<void>;
@@ -134,15 +137,65 @@ export interface LabTraceState {
   updateProtocolSnapshot(patch: Partial<ProtocolSnapshot>): void;
   clearToast(): void;
   clearError(): void;
-  setGeminiApiKey(apiKey: string): void;
-  clearGeminiApiKey(): void;
   resetDemo(): Promise<void>;
 }
+
+const SELECTED_LAB_STORAGE_KEY = "labtrace:selected-lab-id";
 
 function selectProvider() {
   return new GeminiProvider(
     createGeminiModelConfig(getSessionGeminiApiKey()),
   );
+}
+
+function getStoredSelectedLabId(): string {
+  if (typeof window === "undefined") return "";
+  try {
+    return window.localStorage.getItem(SELECTED_LAB_STORAGE_KEY)?.trim() ?? "";
+  } catch {
+    return "";
+  }
+}
+
+function rememberSelectedLabId(labId: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(SELECTED_LAB_STORAGE_KEY, labId);
+  } catch {
+    // Workspace switching still works when browser storage is unavailable.
+  }
+}
+
+function forgetSelectedLabId(): void {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.removeItem(SELECTED_LAB_STORAGE_KEY);
+  } catch {
+    // The repository reset remains authoritative.
+  }
+}
+
+function emptyProtocolState() {
+  return {
+    activeProtocol: null,
+    sources: [],
+    excerpts: [],
+    conflicts: [],
+    missingFields: [],
+    versions: [],
+    chatMessages: [],
+  };
+}
+
+async function readAIConnectionStatus(): Promise<{
+  demoMode: boolean;
+  aiKeySource: AIKeySource;
+}> {
+  const configured = hasSessionGeminiApiKey();
+  return {
+    demoMode: !configured,
+    aiKeySource: configured ? "session" : "none",
+  };
 }
 
 function createId(prefix: string): string {
@@ -151,6 +204,31 @@ function createId(prefix: string): string {
       ? crypto.randomUUID()
       : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
   return `${prefix}-${random}`;
+}
+
+const LEGACY_DEFAULT_LAB_DESCRIPTIONS = new Set([
+  "연구 자료와 프로토콜의 원본 근거, 검토 이력을 연결해 관리합니다.",
+  "LabTrace 시연을 위해 만든 가상 연구실입니다. 모든 인물과 자료는 가상입니다.",
+]);
+
+function backfillDefaultLabProfile(lab: Lab): Lab {
+  if (lab.id !== DEMO_LAB_ID) return lab;
+  const shouldUpdateDescription = LEGACY_DEFAULT_LAB_DESCRIPTIONS.has(
+    lab.description.trim(),
+  );
+  const shouldAddPapers = !lab.keyPapers?.length;
+  if (!shouldUpdateDescription && !shouldAddPapers) return lab;
+  return {
+    ...lab,
+    description: shouldUpdateDescription
+      ? PRODUCT_CONFIG.defaultLab.description
+      : lab.description,
+    keyPapers: shouldAddPapers
+      ? PRODUCT_CONFIG.defaultLab.keyPapers.map((paper) => ({ ...paper }))
+      : lab.keyPapers,
+    isDemo: false,
+    updatedAt: new Date().toISOString(),
+  };
 }
 
 function createWorkspaceBundle(
@@ -431,8 +509,8 @@ const initialState = {
   suggestions: [],
   evidence: [],
   hydrated: false,
-  apiKeyConfigured: false,
   demoMode: true,
+  aiKeySource: "none" as AIKeySource,
   analysisStage: "idle" as AnalysisStage,
   analysisProgress: 0,
   selectedSourceRef: null,
@@ -454,21 +532,32 @@ export const useLabTraceStore = create<LabTraceState>((set, get) => ({
         await repository.seed(createEmptyWorkspaceBundle(), true);
       }
       const labs = await repository.getLabs();
-      const lab = labs[0] ?? null;
+      const selectedLabId = getStoredSelectedLabId();
+      const storedLab =
+        labs.find((item) => item.id === selectedLabId) ??
+        labs.find((item) => item.id === DEMO_LAB_ID) ??
+        labs[0] ??
+        null;
+      const lab = storedLab ? backfillDefaultLabProfile(storedLab) : null;
+      if (lab && lab !== storedLab) {
+        await repository.putLab(lab);
+      }
+      if (lab) rememberSelectedLabId(lab.id);
       const protocols = await repository.getProtocols(lab?.id);
       const protocolId = protocols[0]?.id;
       const protocolState = protocolId
         ? await readProtocolState(protocolId)
-        : {
-            activeProtocol: null,
-            sources: [],
-            excerpts: [],
-            conflicts: [],
-            missingFields: [],
-            versions: [],
-            chatMessages: [],
-          };
-      const apiKeyConfigured = hasSessionGeminiApiKey();
+        : emptyProtocolState();
+      let demoMode = true;
+      let aiKeySource: AIKeySource = "none";
+      try {
+        const connection = await readAIConnectionStatus();
+        demoMode = connection.demoMode;
+        aiKeySource = connection.aiKeySource;
+      } catch {
+        demoMode = true;
+        aiKeySource = "none";
+      }
       set({
         ...protocolState,
         lab,
@@ -478,8 +567,8 @@ export const useLabTraceStore = create<LabTraceState>((set, get) => ({
         analysisStage: "idle",
         analysisProgress: 0,
         hydrated: true,
-        apiKeyConfigured,
-        demoMode: !apiKeyConfigured,
+        demoMode,
+        aiKeySource,
         error: null,
       });
     } catch (error) {
@@ -488,6 +577,59 @@ export const useLabTraceStore = create<LabTraceState>((set, get) => ({
         error: toUserMessage(error),
         analysisStage: "error",
       });
+    }
+  },
+
+  selectLab: async (requestedLab) => {
+    try {
+      const repository = getLabTraceRepository();
+      const existingLab = (await repository.getLabs()).find(
+        (item) => item.id === requestedLab.id,
+      );
+      const lab = existingLab ?? {
+        ...requestedLab,
+        isDemo: false,
+      };
+      if (!existingLab) {
+        await repository.putLab(lab);
+      }
+
+      const protocols = await repository.getProtocols(lab.id);
+      const protocolState = protocols[0]
+        ? await readProtocolState(protocols[0].id)
+        : emptyProtocolState();
+      rememberSelectedLabId(lab.id);
+      set({
+        ...protocolState,
+        lab,
+        protocols,
+        evidence: [],
+        suggestions: [],
+        analysisStage: "idle",
+        analysisProgress: 0,
+        selectedSourceRef: null,
+        toast: {
+          kind: "info",
+          message: `${lab.name} 작업 공간으로 전환했습니다.`,
+        },
+        error: null,
+      });
+    } catch (error) {
+      set({ error: toUserMessage(error) });
+    }
+  },
+
+  refreshAIConnection: async () => {
+    try {
+      const connection = await readAIConnectionStatus();
+      set({
+        demoMode: connection.demoMode,
+        aiKeySource: connection.aiKeySource,
+      });
+      return !connection.demoMode;
+    } catch {
+      set({ demoMode: true, aiKeySource: "none" });
+      return false;
     }
   },
 
@@ -557,7 +699,11 @@ export const useLabTraceStore = create<LabTraceState>((set, get) => ({
     try {
       const repository = getLabTraceRepository();
       const labs = await repository.getLabs();
-      const lab = labs[0] ?? get().lab;
+      const lab =
+        get().lab ??
+        labs.find((item) => item.id === getStoredSelectedLabId()) ??
+        labs.find((item) => item.id === DEMO_LAB_ID) ??
+        labs[0];
       const existingProtocols = await repository.getProtocols(lab?.id);
       const active = get().activeProtocol;
       const canReuseActiveDraft =
@@ -1219,45 +1365,10 @@ export const useLabTraceStore = create<LabTraceState>((set, get) => ({
   clearToast: () => set({ toast: null }),
   clearError: () => set({ error: null }),
 
-  setGeminiApiKey: (apiKey) => {
-    const value = apiKey.trim();
-    if (!value) {
-      set({
-        error: "Gemini API 키를 입력해 주세요.",
-        apiKeyConfigured: false,
-        demoMode: true,
-      });
-      return;
-    }
-    setSessionGeminiApiKey(value);
-    set({
-      apiKeyConfigured: true,
-      demoMode: false,
-      error: null,
-      toast: {
-        kind: "success",
-        message:
-          "API 키를 현재 탭의 메모리에 연결했습니다. 새로고침하면 자동으로 삭제됩니다.",
-      },
-    });
-  },
-
-  clearGeminiApiKey: () => {
-    clearSessionGeminiApiKey();
-    set({
-      apiKeyConfigured: false,
-      demoMode: true,
-      error: null,
-      toast: {
-        kind: "info",
-        message: "현재 탭의 Gemini API 키를 삭제했습니다.",
-      },
-    });
-  },
-
   resetDemo: async () => {
     try {
       await getLabTraceRepository().reset();
+      forgetSelectedLabId();
       set({
         lab: null,
         protocols: [],
@@ -1276,7 +1387,7 @@ export const useLabTraceStore = create<LabTraceState>((set, get) => ({
         selectedSourceRef: null,
         toast: {
           kind: "success",
-          message: "이 브라우저의 LabTrace 데이터를 초기화했습니다.",
+          message: "이 브라우저의 ARIA 데이터를 초기화했습니다.",
         },
         error: null,
       });

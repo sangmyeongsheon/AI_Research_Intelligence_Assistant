@@ -1,14 +1,29 @@
 "use client";
 
 import { AlertTriangle, CheckCircle2, X } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import type { ChatMessage, SourceArtifact } from "@/src/types";
 import { prepareAnalysisPayload } from "@/src/lib/files";
 import {
   useLabTraceStore,
   type AnalysisSourcePayload,
 } from "@/src/stores/useLabTraceStore";
-import { AppShell, type AppScreen } from "./AppShell";
+import {
+  getDepartment,
+  getDirectoryLab,
+} from "@/src/lib/lab-directory";
+import {
+  AppShell,
+  type AppScreen,
+  type AppShellContext,
+} from "./AppShell";
 import {
   OverviewView,
   ProtocolsView,
@@ -24,9 +39,43 @@ import {
 import { AssistantView, ProtocolDetailView } from "./ProtocolViews";
 import { LoadingScreen } from "./common";
 import {
+  DepartmentLabsView,
+  GuideAssistant,
+  LabDirectoryView,
+  LabProfileView,
+  type WorkspaceViewMode,
+} from "./LabDirectoryViews";
+import {
   SourcePanel,
   type SourcePanelArtifact,
 } from "./SourcePanel";
+
+const VIEW_MODE_STORAGE_KEY = "labtrace:view-mode";
+const VIEW_MODE_CHANGE_EVENT = "labtrace:view-mode-change";
+
+function getStoredViewMode(): WorkspaceViewMode {
+  return window.localStorage.getItem(VIEW_MODE_STORAGE_KEY) === "visitor"
+    ? "visitor"
+    : "researcher";
+}
+
+function getServerViewMode(): WorkspaceViewMode {
+  return "researcher";
+}
+
+function subscribeToViewMode(onStoreChange: () => void): () => void {
+  window.addEventListener("storage", onStoreChange);
+  window.addEventListener(VIEW_MODE_CHANGE_EVENT, onStoreChange);
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+    window.removeEventListener(VIEW_MODE_CHANGE_EVENT, onStoreChange);
+  };
+}
+
+function storeViewMode(mode: WorkspaceViewMode): void {
+  window.localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+  window.dispatchEvent(new Event(VIEW_MODE_CHANGE_EVENT));
+}
 
 interface LocalToast {
   id: number;
@@ -43,6 +92,13 @@ export function LabTraceApp() {
   const [analysisStatusText, setAnalysisStatusText] = useState("");
   const [preparingAnalysis, setPreparingAnalysis] = useState(false);
   const [localToast, setLocalToast] = useState<LocalToast | null>(null);
+  const [selectedDepartmentId, setSelectedDepartmentId] = useState("");
+  const [selectedProfileLabId, setSelectedProfileLabId] = useState("");
+  const viewMode = useSyncExternalStore(
+    subscribeToViewMode,
+    getStoredViewMode,
+    getServerViewMode,
+  );
   const startingNewRef = useRef(false);
   const demoMode = store.demoMode;
 
@@ -95,6 +151,22 @@ export function LabTraceApp() {
 
   const navigate = useCallback(
     (next: AppScreen) => {
+      const internalScreens: AppScreen[] = [
+        "overview",
+        "protocols",
+        "new",
+        "analysis",
+        "source-review",
+        "review",
+        "detail",
+        "assistant",
+        "sources",
+      ];
+      if (viewMode === "visitor" && internalScreens.includes(next)) {
+        setSelectedProfileLabId(store.lab?.id ?? "");
+        setScreen("lab-profile");
+        return;
+      }
       if (next === "new") {
         void startNew();
         return;
@@ -108,7 +180,7 @@ export function LabTraceApp() {
       }
       setScreen(next);
     },
-    [startNew, store.activeProtocol],
+    [startNew, store.activeProtocol, store.lab?.id, viewMode],
   );
 
   const selectedArtifact = useMemo<SourcePanelArtifact | undefined>(() => {
@@ -141,9 +213,129 @@ export function LabTraceApp() {
   const unresolvedCount =
     store.conflicts.filter((item) => item.status === "unresolved").length +
     store.missingFields.filter((item) => item.status === "unresolved").length;
+  const displayedScreen: AppScreen =
+    viewMode === "visitor" &&
+    !["directory", "department", "lab-profile", "settings"].includes(screen)
+      ? "lab-profile"
+      : screen;
+  const selectedDepartment = getDepartment(selectedDepartmentId);
+  const profiledLab =
+    getDirectoryLab(selectedProfileLabId || store.lab?.id || "") ?? store.lab;
+  const profileDepartment = profiledLab?.departmentId
+    ? getDepartment(profiledLab.departmentId)
+    : undefined;
+  const internalScreens: AppScreen[] = [
+    "overview",
+    "protocols",
+    "new",
+    "analysis",
+    "source-review",
+    "review",
+    "detail",
+    "assistant",
+    "sources",
+  ];
+
+  let shellContext: AppShellContext;
+  if (displayedScreen === "directory") {
+    shellContext = {
+      trail: "Labs",
+      title: "연구실 디렉터리",
+      subtitle: "Directory",
+    };
+  } else if (displayedScreen === "department") {
+    shellContext = {
+      trail: "Labs",
+      title: selectedDepartment?.name ?? "학과 연구실",
+      subtitle: selectedDepartment?.nameEn,
+    };
+  } else if (displayedScreen === "lab-profile" && profiledLab) {
+    shellContext = {
+      trail: profileDepartment
+        ? `Labs / ${profileDepartment.name}`
+        : "Labs",
+      title: profiledLab.name,
+      subtitle: profiledLab.shortName,
+      activeLabTitle: profiledLab.name,
+    };
+  } else if (displayedScreen === "settings") {
+    shellContext = {
+      trail: "ARIA",
+      title: "설정",
+      subtitle: "Settings",
+    };
+  } else if (internalScreens.includes(displayedScreen) && store.lab) {
+    shellContext = {
+      trail: "Lab workspace",
+      title: store.lab.name,
+      subtitle: store.lab.shortName,
+      activeLabTitle: store.lab.name,
+    };
+  } else {
+    shellContext = {
+      trail: "ARIA",
+      title: "연구실",
+    };
+  }
+
+  const openLabWorkspace = async (labId: string) => {
+    const lab = getDirectoryLab(labId);
+    if (!lab) return;
+    await store.selectLab(lab);
+    if (useLabTraceStore.getState().lab?.id !== lab.id) return;
+    setSelectedProfileLabId(lab.id);
+    setSelectedDepartmentId(lab.departmentId ?? "");
+    storeViewMode("researcher");
+    setScreen("overview");
+  };
 
   let content = null;
-  if (screen === "overview") {
+  if (displayedScreen === "directory") {
+    content = (
+      <LabDirectoryView
+        onSelectDepartment={(departmentId) => {
+          setSelectedDepartmentId(departmentId);
+          setScreen("department");
+        }}
+      />
+    );
+  } else if (displayedScreen === "department") {
+    content = (
+      <DepartmentLabsView
+        currentLabId={store.lab?.id}
+        departmentId={selectedDepartmentId}
+        onBack={() => setScreen("directory")}
+        onOpenProfile={(labId) => {
+          const lab = getDirectoryLab(labId);
+          if (lab?.departmentId) setSelectedDepartmentId(lab.departmentId);
+          setSelectedProfileLabId(labId);
+          setScreen("lab-profile");
+        }}
+        onOpenWorkspace={(labId) => void openLabWorkspace(labId)}
+        protocols={store.protocols}
+        unresolvedCount={unresolvedCount}
+        viewMode={viewMode}
+      />
+    );
+  } else if (displayedScreen === "lab-profile") {
+    content = (
+      <LabProfileView
+        currentLabId={store.lab?.id}
+        labId={selectedProfileLabId || store.lab?.id || ""}
+        onBack={() =>
+          setScreen(selectedDepartmentId ? "department" : "directory")
+        }
+        onOpenProfile={(labId) => {
+          const lab = getDirectoryLab(labId);
+          if (lab?.departmentId) setSelectedDepartmentId(lab.departmentId);
+          setSelectedProfileLabId(labId);
+        }}
+        onOpenWorkspace={(labId) => void openLabWorkspace(labId)}
+        onSwitchToResearcher={() => storeViewMode("researcher")}
+        viewMode={viewMode}
+      />
+    );
+  } else if (displayedScreen === "overview") {
     content = (
       <OverviewView
         activeProtocolId={active?.id}
@@ -165,7 +357,7 @@ export function LabTraceApp() {
         sources={store.sources}
       />
     );
-  } else if (screen === "protocols") {
+  } else if (displayedScreen === "protocols") {
     content = (
       <ProtocolsView
         activeProtocolId={active?.id}
@@ -184,7 +376,7 @@ export function LabTraceApp() {
         sources={store.sources}
       />
     );
-  } else if (screen === "new") {
+  } else if (displayedScreen === "new") {
     content = (
       <UploadWorkspaceView
         analyzing={preparingAnalysis}
@@ -223,7 +415,7 @@ export function LabTraceApp() {
         }}
       />
     );
-  } else if (screen === "analysis") {
+  } else if (displayedScreen === "analysis") {
     content = (
       <AnalysisProgressView
         complete={store.analysisStage === "complete"}
@@ -252,7 +444,7 @@ export function LabTraceApp() {
         statusText={analysisStatusText}
       />
     );
-  } else if (screen === "source-review") {
+  } else if (displayedScreen === "source-review") {
     content = (
       <SourceReviewView
         excerpts={store.excerpts}
@@ -261,7 +453,7 @@ export function LabTraceApp() {
         sources={store.sources}
       />
     );
-  } else if (screen === "review") {
+  } else if (displayedScreen === "review") {
     content = (
       <ConflictReviewView
         conflicts={store.conflicts}
@@ -289,7 +481,7 @@ export function LabTraceApp() {
         }}
       />
     );
-  } else if (screen === "detail" && active) {
+  } else if (displayedScreen === "detail" && active) {
     content = (
       <ProtocolDetailView
         conflicts={store.conflicts}
@@ -323,7 +515,7 @@ export function LabTraceApp() {
         versions={store.versions}
       />
     );
-  } else if (screen === "assistant" && active) {
+  } else if (displayedScreen === "assistant" && active) {
     content = (
       <AssistantView
         messages={store.chatMessages}
@@ -340,17 +532,17 @@ export function LabTraceApp() {
         protocol={active}
       />
     );
-  } else if (screen === "sources") {
+  } else if (displayedScreen === "sources") {
     content = (
       <SourcesView onSelect={selectArtifact} sources={store.sources} />
     );
-  } else if (screen === "settings") {
+  } else if (displayedScreen === "settings") {
     content = (
       <SettingsView
-        apiKeyConfigured={store.apiKeyConfigured}
+        aiKeySource={store.aiKeySource}
+        demoMode={demoMode}
         lab={store.lab ?? undefined}
-        onApiKeyClear={() => store.clearGeminiApiKey()}
-        onApiKeySave={(apiKey) => store.setGeminiApiKey(apiKey)}
+        onApiKeyChanged={() => store.refreshAIConnection()}
         onReset={() => void store.resetDemo()}
       />
     );
@@ -388,10 +580,20 @@ export function LabTraceApp() {
 
   return (
     <AppShell
+      context={shellContext}
       demoMode={demoMode}
       onNavigate={navigate}
-      screen={screen}
+      onViewModeChange={(mode) => {
+        storeViewMode(mode);
+        if (mode === "visitor") {
+          const currentLab = getDirectoryLab(store.lab?.id ?? "");
+          setSelectedProfileLabId(currentLab?.id ?? store.lab?.id ?? "");
+          setSelectedDepartmentId(currentLab?.departmentId ?? "");
+        }
+      }}
+      screen={displayedScreen}
       unresolvedCount={unresolvedCount}
+      viewMode={viewMode}
     >
       {content}
       <SourcePanel
@@ -399,6 +601,7 @@ export function LabTraceApp() {
         onClose={() => store.selectSource(null)}
         sourceRef={store.selectedSourceRef}
       />
+      <GuideAssistant />
       <div aria-live="polite" className="toast-region">
         {visibleToast ? (
           <div

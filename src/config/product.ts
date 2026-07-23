@@ -1,9 +1,22 @@
+export const PUBLIC_BASE_PATH = process.env.NEXT_PUBLIC_BASE_PATH ?? "";
+
+export function publicAssetPath(path: string): string {
+  const normalizedPath = path.startsWith("/") ? path : `/${path}`;
+  return `${PUBLIC_BASE_PATH}${normalizedPath}`;
+}
+
 export const PRODUCT_CONFIG = {
-  name: "LabTrace",
-  nameKo: "랩트레이스",
-  tagline: "연구 작성자와 원본 근거가 연결된 표준 랩실 프로토콜",
+  name: "ARIA",
+  nameKo: "아리아",
+  fullName: "AI Research Intelligence Assistant",
+  logoSrc: publicAssetPath("/aria-logo.png"),
+  socialImageSrc: publicAssetPath("/og.png"),
+  demoBundleSrc: publicAssetPath("/downloads/ARIA-example-collection.zip"),
+  shortDescription: "랩실 프로토콜 자동 정형화 서비스",
+  tagline:
+    "음성·사진·메모·문서를 넣으면, 출처가 연결된 표준 랩실 프로토콜이 됩니다.",
   description:
-    "음성, 사진, 메모와 기존 문서를 통합해 출처와 검토 이력이 연결된 프로토콜을 만듭니다.",
+    "ARIA는 음성, 사진, 메모와 기존 문서를 통합해 출처와 검토 이력이 연결된 표준 랩실 프로토콜을 만듭니다.",
   defaultLab: {
     name: "Neural Systems Lab",
     shortName: "NSL",

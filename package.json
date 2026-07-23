@@ -9,10 +9,16 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
+    "start": "next start",
+    "dev:sites": "vinext dev",
+    "build:sites": "vinext build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:render": "node --test tests/rendered-html.test.mjs",
     "typecheck": "tsc --noEmit",
-    "lint": "eslint . --ignore-pattern out --ignore-pattern .next --ignore-pattern work"
+    "build:vercel": "next build",
+    "lint": "eslint . --ignore-pattern dist --ignore-pattern .next --ignore-pattern work",
+    "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
     "@google/genai": "^2.13.0",

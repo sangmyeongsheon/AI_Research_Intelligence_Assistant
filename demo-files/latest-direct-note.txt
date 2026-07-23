@@ -1,0 +1,64 @@
+Neural Systems Lab - pERK Western blot 최근 실행 메모
+작성자: 이수빈
+작성일: 2026-07-22
+Run ID: NSL-WB-260722-03
+
+[실험 맥락]
+- 시료: DIV14 cortical neuron lysate
+- 처리군: Vehicle / BDNF 10 min / BDNF 30 min
+- Target: phospho-ERK1/2
+- Loading control: total ERK
+- 단백질 정량: BCA, 2.0 μg/μL로 맞춤
+- Loading: 20 μg/lane
+
+[전기영동]
+- Gel: 10% SDS-PAGE, 1.0 mm
+- Sample buffer: 4x Laemmli + 10% beta-mercaptoethanol
+- 95°C, 5 min denaturation
+- 80 V, 15 min stacking
+- 120 V, 약 55 min resolving
+- Marker: 5 μL
+
+[Transfer]
+- Membrane: PVDF 0.45 μm
+- Methanol 20 sec -> DI water 2 min -> transfer buffer 5 min
+- Wet transfer 90 V / 90 min
+- Ice pack: 시작 시 1개, 45 min에 교체
+- Transfer 후 Ponceau S 5 min
+- Ponceau image 저장 위치: /NSL/WB/260722/run03/ponceau
+
+[Blocking 및 항체]
+- pERK이므로 5% BSA in TBST 사용
+- Blocking: RT 60 min, 70 rpm
+- Primary: CST anti-pERK1/2, lot A24-071
+- Primary dilution: 1:2000
+- Primary incubation: 4°C overnight, 약 14 h
+- Primary 후 TBST: 3 x 5 min
+- Secondary: anti-rabbit HRP, lot S24-033
+- Secondary dilution: 1:5000
+- Secondary incubation: RT 60 min
+- Secondary 후 TBST: 3 x 10 min
+
+[검출]
+- ECL A:B = 1:1
+- ECL reaction: 2 min
+- Exposure: 10 / 30 / 60 sec
+- 60 sec는 BDNF 30 min lane 일부 포화
+- 정량용 이미지: 30 sec
+- 예상 pERK band: 약 42/44 kDa doublet
+
+[관찰]
+- Vehicle 대비 BDNF 10 min에서 pERK 증가
+- BDNF 30 min은 10 min보다 약간 감소했지만 Vehicle보다는 높음
+- Membrane 좌측 상단에 작은 기포 흔적 1개, 분석 ROI 밖이라 사용 가능
+- 전체 background는 이전 run보다 낮았음
+
+[다음 run 확인]
+- Total ERK stripping/reprobe 여부는 PI 확인 필요
+- BDNF 30 min biological replicate 한 번 더 필요
+- 다른 primary lot 사용 시 1:2000을 그대로 적용하지 말고 재검증
+- ImageJ background subtraction 방식은 rolling ball 50 px 사용 여부 확인
+
+[핵심 주의]
+활성화한 PVDF는 세척·blocking·항체 교환 사이에 절대 마르게 두지 않는다.
+

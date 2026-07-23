@@ -1,4 +1,4 @@
-name: Deploy LabTrace to GitHub Pages
+name: Deploy ARIA to GitHub Pages
 
 on:
   push:

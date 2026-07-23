@@ -17,7 +17,7 @@ function requireBrowserDocument(): Document {
       code: "EXPORT_NOT_AVAILABLE",
       title: "이 환경에서는 다운로드할 수 없습니다",
       message: "파일 다운로드는 브라우저 화면에서만 실행할 수 있습니다.",
-      recovery: "LabTrace 브라우저 화면으로 돌아가 다시 시도해 주세요.",
+      recovery: "ARIA 브라우저 화면으로 돌아가 다시 시도해 주세요.",
     });
   }
   return document;
@@ -91,4 +91,3 @@ export function downloadHtml(html: string, fileName: string): DownloadResult {
     "text/html;charset=utf-8",
   );
 }
-

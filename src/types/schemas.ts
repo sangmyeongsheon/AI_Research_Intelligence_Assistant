@@ -24,10 +24,16 @@ export const KeyPaperSchema = z.object({
 
 export const LabSchema = z.object({
   id: z.string().min(1),
+  departmentId: z.string().min(1).optional(),
   name: z.string().min(1),
   shortName: z.string().min(1),
   field: z.string().min(1),
+  pi: z.string().min(1).optional(),
   description: z.string(),
+  intro: z.string().optional(),
+  researchAreas: z.array(z.string()).optional(),
+  profileBody: z.string().optional(),
+  isProfilePublic: z.boolean().optional(),
   keyPapers: z.array(KeyPaperSchema).max(3).optional(),
   isDemo: z.boolean(),
   createdAt: IsoDateSchema,
