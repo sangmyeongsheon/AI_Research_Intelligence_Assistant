@@ -276,7 +276,14 @@ export function OverviewView({
           >
             {recentProtocols.length ? (
               <div className="table-wrap">
-                <table className="data-table">
+                <table className="data-table recent-protocol-table">
+                  <colgroup>
+                    <col className="recent-protocol-title-column" />
+                    <col className="recent-protocol-status-column" />
+                    <col className="recent-protocol-version-column" />
+                    <col className="recent-protocol-review-column" />
+                    <col className="recent-protocol-updated-column" />
+                  </colgroup>
                   <thead>
                     <tr>
                       <th>프로토콜</th>
@@ -297,13 +304,15 @@ export function OverviewView({
                           <strong>{protocol.title}</strong>
                           <span>{protocol.objective}</span>
                         </td>
-                        <td>
+                        <td className="recent-protocol-status">
                           <StatusBadge
                             status={protocol.status as ProtocolStatus}
                           />
                         </td>
-                        <td className="mono">{versionLabel(protocol)}</td>
-                        <td>
+                        <td className="mono recent-protocol-version">
+                          {versionLabel(protocol)}
+                        </td>
+                        <td className="recent-protocol-review">
                           {unresolvedForProtocol(
                             protocol.id,
                             activeProtocolId,
@@ -323,7 +332,7 @@ export function OverviewView({
                             <span className="status status-approved">0</span>
                           )}
                         </td>
-                        <td className="mono">
+                        <td className="mono recent-protocol-updated">
                           {dateLabel(protocol.updatedAt)}
                         </td>
                       </tr>

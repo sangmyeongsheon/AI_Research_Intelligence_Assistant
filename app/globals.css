@@ -3250,6 +3250,42 @@ body {
   background: #f9fafb;
 }
 
+.recent-protocol-table {
+  min-width: 720px;
+  table-layout: fixed;
+}
+
+.recent-protocol-title-column {
+  width: auto;
+}
+
+.recent-protocol-status-column {
+  width: 82px;
+}
+
+.recent-protocol-version-column {
+  width: 64px;
+}
+
+.recent-protocol-review-column {
+  width: 86px;
+}
+
+.recent-protocol-updated-column {
+  width: 132px;
+}
+
+.recent-protocol-table th:not(:first-child),
+.recent-protocol-table td:not(:first-child),
+.recent-protocol-table .status {
+  word-break: keep-all;
+  white-space: nowrap;
+}
+
+.recent-protocol-updated {
+  font-size: 11px;
+}
+
 .activity {
   width: 100%;
   min-height: 58px;
