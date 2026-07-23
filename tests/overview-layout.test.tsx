@@ -34,19 +34,19 @@ describe("overview recent protocol layout", () => {
 
   it("keeps populated dashboard panels inside their grid tracks", () => {
     expect(globalStyles).toMatch(
-      /\.dashboard-grid\s*>\s*\.stack,\s*\.dashboard-grid\s*>\s*\.stack\s*>\s*\.panel\s*\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/s,
+      /\.dashboard-grid\s*>\s*\.stack,\s*\.dashboard-grid\s*>\s*\.stack\s*>\s*\.panel\s*\{[^}]*min-width:\s*0;[^}]*max-width:\s*100%;/,
     );
     expect(globalStyles).toMatch(
-      /\.dashboard-grid\s+\.table-wrap\s*\{[^}]*width:\s*100%;/s,
+      /\.dashboard-grid\s+\.table-wrap\s*\{[^}]*width:\s*100%;/,
     );
     expect(globalStyles).toMatch(
-      /\.panel-body\.no-padding\s*\{[^}]*padding:\s*0;/s,
+      /\.panel-body\.no-padding\s*\{[^}]*padding:\s*0;/,
     );
     expect(globalStyles).toMatch(
-      /\.recent-protocol-table\s*\{[^}]*min-width:\s*0;[^}]*table-layout:\s*fixed;/s,
+      /\.recent-protocol-table\s*\{[^}]*min-width:\s*0;[^}]*table-layout:\s*fixed;/,
     );
     expect(globalStyles).toMatch(
-      /\.recent-protocol-table\s+\.cell-title\s*\{[^}]*min-width:\s*0;/s,
+      /\.recent-protocol-table\s+\.cell-title\s*\{[^}]*min-width:\s*0;/,
     );
   });
 });
