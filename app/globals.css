@@ -4041,6 +4041,16 @@ body {
   bottom: 22px;
 }
 
+@media (max-width: 1180px) {
+  .dashboard-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dashboard-grid > .stack {
+    min-width: 0;
+  }
+}
+
 @media (max-width: 860px) {
   .sidebar {
     z-index: 90;
