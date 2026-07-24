@@ -85,7 +85,7 @@ interface LocalToast {
 
 export function LabTraceApp() {
   const store = useLabTraceStore();
-  const [screen, setScreen] = useState<AppScreen>("overview");
+  const [screen, setScreen] = useState<AppScreen>("directory");
   const [analysisFiles, setAnalysisFiles] = useState<string[]>([]);
   const [analysisPayload, setAnalysisPayload] =
     useState<AnalysisSourcePayload | null>(null);
